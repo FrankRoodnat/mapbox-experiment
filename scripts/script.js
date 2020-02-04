@@ -1,4 +1,4 @@
-let overlay = document.getElementById('overlay')
+let overlay = document.getElementById("overlay");
 
 mapboxgl.accessToken =
   "pk.eyJ1IjoiZnJhbmtyb29kbmF0IiwiYSI6ImNrNjBpcnZ4czA0d3YzbnVmM243Z2I2azQifQ.9_XhUpTIXv6zNVoXvF6bFg";
@@ -41,15 +41,15 @@ map.on("load", function() {
         }
       });
       map.on("click", "points", function(e) {
-        map.flyTo({ center: e.features[0].geometry.coordinates, zoom: 17});
+        map.flyTo({ center: e.features[0].geometry.coordinates, zoom: 17 });
         overlay.style.marginTop = "70vh";
-    });
-      
+      });
+
       // Change the cursor to a pointer when the it enters a feature in the 'symbols' layer.
       map.on("mouseenter", "points", function() {
         map.getCanvas().style.cursor = "pointer";
       });
-      
+
       // Change it back to a pointer when it leaves.
       map.on("mouseleave", "points", function() {
         map.getCanvas().style.cursor = "";
@@ -88,5 +88,3 @@ map.on("load", function() {
     }
   });
 });
-
-

@@ -2,10 +2,6 @@
     box-sizing: border-box;
 }
 
-html {
-    overflow-x: hidden;
-}
-
 body {
     background: #ffffff;
     color: #000000;
@@ -17,21 +13,29 @@ body {
     font-feature-settings: 'kern';
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    
 }
 
 h1{
     font-size: 30px;
     font-weight: 700;
 }
-#map{
-    overflow: hidden;
-    position: fixed;
+
+.container{
+    height: 100vh;
+}
+.overlay-info{
+    background-color: #fff;
+    position: absolute;
+    z-index: 999;
+    border-radius: 10px;
+    height: 150px;
+    bottom: 0;
+    padding-left: 15px;
+    width: 100%;
 }
 
-.stage-info-overlay{
-    background-color: #fff;
-    display: flex;
-    position: relative;
-    margin-top: 100vh;
-    z-index: 999;
+.member-photo-circle{
+    background-color: #E3EEFF;
+    border-radius: 100%;
 }

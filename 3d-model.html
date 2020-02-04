@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Add a 3D model</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" type="text/css" href="styles/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://unpkg.com/three@0.106.2/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.106.2/examples/js/loaders/GLTFLoader.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.0.9/mapbox-gl-draw.css"
+        type="text/css" />
+    <div id="map"></div>
+    <div class="container">
+        <div class="overlay-info">
+            <h1>Mainstage</h1>
+            <h2>Team</h2>
+            <div class="team-member-container">
+                <div class="member-photo-container">
+                    <div class="member-photo-circle">
+                        
+                    </div>
+                </div>
+                <div class="member-name-container">
+                    <b>Hans Kazan</b>
+                </div>
+            </div>
+            <h2>Schedule</h2>
+        </div>
+    </div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZnJhbmtyb29kbmF0IiwiYSI6ImNrNjBpcnZ4czA0d3YzbnVmM243Z2I2azQifQ.9_XhUpTIXv6zNVoXvF6bFg';
+        var map = (window.map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            zoom: 18,
+            center: [4.7866, 51.5887],
+            pitch: 60,
+            antialias: true // create the gl context with MSAA antialiasing, so custom layers are antialiased
+        }));
+
+
+        // parameters to ensure the model is georeferenced correctly on the map
+        var modelOrigin = [4.7866, 51.5887];
+        var modelAltitude = 0;
+        var modelRotate = [Math.PI / 2, -0.4, 0];
+
+        var modelAsMercatorCoordinate = mapboxgl.MercatorCoordinate.fromLngLat(
+            modelOrigin,
+            modelAltitude
+        );
+
+        // transformation parameters to position, rotate and scale the 3D model onto the map
+        var modelTransform = {
+            translateX: modelAsMercatorCoordinate.x,
+            translateY: modelAsMercatorCoordinate.y,
+            translateZ: modelAsMercatorCoordinate.z,
+            rotateX: modelRotate[0],
+            rotateY: modelRotate[1],
+            rotateZ: modelRotate[2],
+            /* Since our 3D model is in real world meters, a scale transform needs to be
+             * applied since the CustomLayerInterface expects units in MercatorCoordinates.
+             */
+            scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+        };
+
+        var THREE = window.THREE;
+
+        // configuration of the custom layer for a 3D model per the CustomLayerInterface
+        var mainStage = {
+            id: '3d-model',
+            type: 'custom',
+            renderingMode: '3d',
+            onAdd: function (map, gl) {
+                this.camera = new THREE.Camera();
+                this.scene = new THREE.Scene();
+
+                // create two three.js lights to illuminate the model
+                var directionalLight = new THREE.DirectionalLight(0xffffff);
+                directionalLight.position.set(0, -70, 100).normalize();
+                this.scene.add(directionalLight);
+
+                var directionalLight2 = new THREE.DirectionalLight(0xffffff);
+                directionalLight2.position.set(0, 70, 100).normalize();
+                this.scene.add(directionalLight2);
+
+                // use the three.js GLTF loader to add the 3D model to the three.js scene
+                var loader = new THREE.GLTFLoader();
+                loader.load(
+                    'models/stage.glb',
+                    function (gltf) {
+                        this.scene.add(gltf.scene);
+                    }.bind(this)
+                );
+                this.map = map;
+
+                // use the Mapbox GL JS map canvas for three.js
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: map.getCanvas(),
+                    context: gl,
+                    antialias: true
+                });
+
+                this.renderer.autoClear = false;
+            },
+            render: function (gl, matrix) {
+                var rotationX = new THREE.Matrix4().makeRotationAxis(
+                    new THREE.Vector3(1, 0, 0),
+                    modelTransform.rotateX
+                );
+                var rotationY = new THREE.Matrix4().makeRotationAxis(
+                    new THREE.Vector3(0, 1, 0),
+                    modelTransform.rotateY
+                );
+                var rotationZ = new THREE.Matrix4().makeRotationAxis(
+                    new THREE.Vector3(0, 0, 1),
+                    modelTransform.rotateZ
+                );
+
+                var m = new THREE.Matrix4().fromArray(matrix);
+                var l = new THREE.Matrix4()
+                    .makeTranslation(
+                        modelTransform.translateX,
+                        modelTransform.translateY,
+                        modelTransform.translateZ
+                    )
+                    .scale(
+                        new THREE.Vector3(
+                            modelTransform.scale,
+                            -modelTransform.scale,
+                            modelTransform.scale
+                        )
+                    )
+                    .multiply(rotationX)
+                    .multiply(rotationY)
+                    .multiply(rotationZ);
+
+                this.camera.projectionMatrix = m.multiply(l);
+                this.renderer.state.reset();
+                this.renderer.render(this.scene, this.camera);
+                this.map.triggerRepaint();
+            }
+        };
+
+        map.on('style.load', function () {
+            var layers = map.getStyle().layers;
+
+            var labelLayerId;
+            for (var i = 0; i < layers.length; i++) {
+                if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
+                    labelLayerId = layers[i].id;
+                    break;
+                }
+            }
+
+            map.addLayer(mainStage, 'waterway-label');
+            map.addLayer(
+                {
+                    'id': '3d-buildings',
+                    'source': 'composite',
+                    'source-layer': 'building',
+                    'filter': ['==', 'extrude', 'true'],
+                    'type': 'fill-extrusion',
+                    'minzoom': 15,
+                    'paint': {
+                        'fill-extrusion-color': '#aaa',
+
+                        // use an 'interpolate' expression to add a smooth transition effect to the
+                        // buildings as the user zooms in
+                        'fill-extrusion-height': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            15,
+                            0,
+                            15.05,
+                            ['get', 'height']
+                        ],
+                        'fill-extrusion-base': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            15,
+                            0,
+                            15.05,
+                            ['get', 'min_height']
+                        ],
+                        'fill-extrusion-opacity': 0.6
+                    }
+                },
+                labelLayerId
+            );
+        });
+
+    </script>
+
+</body>
+
+</html>
